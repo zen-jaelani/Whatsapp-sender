@@ -9,12 +9,10 @@ const {
 const app = express();
 const port = 3003;
 
-// Connect to WhatsApp and return a promise that resolves when the connection is established
 async function connectToWhatsApp() {
   return new Promise(async (resolve, reject) => {
     const { state, saveCreds } = await useMultiFileAuthState("wa_auth");
     const sock = makeWASocket({
-      // can provide additional config here
       auth: state,
       printQRInTerminal: true,
     });
@@ -31,14 +29,14 @@ async function connectToWhatsApp() {
           ", reconnecting ",
           shouldReconnect
         );
-        // reconnect if not logged out
+
         if (shouldReconnect) {
           connectToWhatsApp();
         }
         saveCreds();
       } else if (connection === "open") {
         console.log("opened connection");
-        resolve(sock); // resolve the promise with the sock object when the connection is established
+        resolve(sock);
       } else if (connection === "auth_failure") {
         console.log("authentication failure, retrying");
         setTimeout(() => connectToWhatsApp(), 5000);
@@ -47,23 +45,38 @@ async function connectToWhatsApp() {
   });
 }
 
-// Start the server only after connecting to WhatsApp
 connectToWhatsApp().then((sock) => {
-  app.locals.sock = sock; // store the sock object in the app object
+  app.locals.sock = sock;
   app.listen(port, () => {
     console.log(`App running on port ${port}`);
   });
 });
 
-// Define a request handler function for the app
+app.get("/login", async (req, res) => {
+  try {
+    const { state } = await useMultiFileAuthState("wa_auth");
+    const socket = makeWASocket({
+      auth: state,
+      printQRInTerminal: true,
+    });
+
+    socket.connect();
+    socket.ev.on("connection.open", () => {
+      res.send("Logged in successfully");
+    });
+  } catch (error) {
+    console.error("Error logging in:", error);
+    res.status(500).send("Error logging in");
+  }
+});
+
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 
-// Define a request handler function to send a message
 app.get("/send", async (req, res) => {
-  const remoteJid = "621234567890@c.us"; // replace with the actual phone number
-  const message = { text: "Hello there!" }; // replace with the message you want to send
+  const remoteJid = "621234567890@c.us";
+  const message = { text: "Hello there!" };
   try {
     await req.app.locals.sock.sendMessage(remoteJid, message);
     res.send("Message sent!");
@@ -73,7 +86,6 @@ app.get("/send", async (req, res) => {
   }
 });
 
-// Define a request handler function to get all the group ids
 app.get("/groups", async (req, res) => {
   try {
     let ids = [];
