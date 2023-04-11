@@ -1,5 +1,6 @@
 const express = require("express");
 const makeWASocket = require("@adiwajshing/baileys").default;
+const fs = require("fs");
 const {
   DisconnectReason,
   useMultiFileAuthState,
@@ -11,6 +12,9 @@ const port = 3003;
 
 async function connectToWhatsApp() {
   return new Promise(async (resolve, reject) => {
+    if (!fs.existsSync("wa_auth")) {
+      fs.mkdirSync("wa_auth");
+    }
     const { state, saveCreds } = await useMultiFileAuthState("wa_auth");
     const sock = makeWASocket({
       auth: state,
@@ -54,6 +58,10 @@ connectToWhatsApp().then((sock) => {
 
 app.get("/login", async (req, res) => {
   try {
+    const fs = require("fs");
+    if (!fs.existsSync("wa_auth")) {
+      fs.mkdirSync("wa_auth");
+    }
     const { state } = await useMultiFileAuthState("wa_auth");
     const socket = makeWASocket({
       auth: state,
